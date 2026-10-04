@@ -20,7 +20,7 @@ func _initialize() -> void:
 	sim.tick(20)
 	verify(sim.find_flight(id).pos == before and sim.elapsed == 0, "Pause freezes movement and clock")
 	sim.paused = false
-	sim.tick(20)
+	sim.tick(130)
 	verify(sim.find_flight(id).state == "Landed", "Landing finishes")
 	verify(sim.command(id, "exit"), "Runway exit accepted")
 	sim.tick(10)
@@ -41,11 +41,12 @@ func _initialize() -> void:
 	verify(sim.find_flight(id).pos.z == 6, "Aircraft remains outside runway")
 	sim.position = "Tower"
 	verify(sim.command(id, "takeoff"), "Takeoff clearance accepted")
-	verify(not sim.command(second, "land"), "Landing during takeoff blocked")
+	var next_arrival: String = sim.spawn_arrival()
+	verify(not sim.command(next_arrival, "land"), "Landing during takeoff blocked")
 	sim.tick(20)
 	verify(sim.departures == 1 and sim.find_flight(id).is_empty(), "Full cycle completed")
 	verify(sim.runway_owner.is_empty(), "Departure releases runway")
-	verify(sim.command(second, "land"), "Next arrival can use runway")
+	verify(sim.command(next_arrival, "land"), "Next arrival can use runway")
 	var gates_sim = Operations.new()
 	gates_sim.position = "Ground"
 	for gate in range(4):
@@ -56,5 +57,26 @@ func _initialize() -> void:
 		verify(gates_sim.command(gate_id, "gate"), "Every gate accepts a reservation")
 		verify(parked.gate == gate, "Gate reservations remain distinct")
 	verify(gates_sim.spawn_arrival().is_empty(), "Four-flight capacity is enforced")
+	var approach_sim = Operations.new()
+	var inbound: Dictionary = approach_sim.find_flight("SUR101")
+	var initial: Vector3 = inbound.pos
+	verify(is_equal_approx((Operations.THRESHOLD_X - initial.x) * Operations.METERS_PER_UNIT / 1852.0, 4.0), "Arrival starts four nautical miles away")
+	verify(is_equal_approx(inbound.heading, -PI / 2.0), "Arrival initially faces runway heading")
+	approach_sim.tick(10)
+	verify(inbound.pos.x > initial.x and inbound.pos.y < initial.y, "Uncleared arrival flies and descends")
+	approach_sim.tick(80)
+	verify(inbound.state == "Going around" and inbound.pos.y > 2, "Uncleared approach climbs instead of landing")
+	verify(approach_sim.runway_owner.is_empty(), "Missed approach does not reserve runway")
+	verify(not approach_sim.command("SUR101", "land"), "Late landing clearance rejected after go-around")
+	approach_sim.tick(400)
+	verify(inbound.state == "Inbound" and not inbound.route.is_empty(), "Missed approach rejoins a moving final")
+	var cleared_sim = Operations.new()
+	cleared_sim.tick(10)
+	var before_clearance: Vector3 = cleared_sim.find_flight("SUR101").pos
+	verify(cleared_sim.command("SUR101", "land"), "Moving approach accepts clearance")
+	verify(cleared_sim.find_flight("SUR101").pos == before_clearance, "Clearance does not teleport aircraft")
+	cleared_sim.tick(130)
+	verify(cleared_sim.find_flight("SUR101").state == "Landed", "Cleared approach touches down and rolls out")
 	print("PASS: ", checks, " operational checks, including complete aircraft lifecycle")
 	quit(0)
+

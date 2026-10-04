@@ -11,6 +11,27 @@ var errors := 0
 var serial := 101
 var radio: Array[String] = []
 const GATES := [-27.0, -9.0, 9.0, 27.0]
+const METERS_PER_UNIT := 40.0
+const THRESHOLD_X := -48.0
+const APPROACH_SPEED := 2.0
+const DECISION_X := -75.0
+
+func _final_height(x: float) -> float:
+	return 0.8 + maxf(THRESHOLD_X - x, 0.0) * tan(deg_to_rad(3.0))
+
+func _begin_approach(flight: Dictionary) -> void:
+	flight.landing_cleared = false
+	flight.approach_decision = true
+	_route(flight, [Vector3(DECISION_X, _final_height(DECISION_X), 0), Vector3(-38, 0.8, 0), Vector3(12, 0.8, 0)], "Inbound", "Landed", APPROACH_SPEED)
+	var miles: float = maxf(THRESHOLD_X - flight.pos.x, 0) * METERS_PER_UNIT / 1852.0
+	_note(flight.id + ": on approach, %.1f-mile final runway 09, request landing clearance." % miles)
+
+func _go_around(flight: Dictionary) -> void:
+	flight.landing_cleared = false
+	flight.approach_decision = false
+	if runway_owner == flight.id: runway_owner = ""
+	_route(flight, [Vector3(60, 18, 0), Vector3(140, 30, -90), Vector3(-240, 30, -140), Vector3(-233.2, _final_height(-233.2), 0)], "Going around", "Inbound", 3.0)
+	_note(flight.id + ": going around, no landing clearance. Climbing; will return for another approach.")
 
 func _init() -> void:
 	spawn_arrival()
@@ -22,9 +43,12 @@ func spawn_arrival() -> String:
 		return ""
 	var id := "SUR" + str(serial)
 	serial += 1
-	aircraft.append({"id": id, "state": "Inbound", "pos": Vector3(-72, 18, 0),
-		"route": [], "next_state": "", "speed": 8.0, "gate": -1, "timer": 0.0})
-	_note(id + ": inbound runway 09, request landing clearance.")
+	var start_x := THRESHOLD_X - (4.0 + aircraft.size() * 1.5) * 1852.0 / METERS_PER_UNIT
+	var flight := {"id": id, "state": "Inbound", "pos": Vector3(start_x, _final_height(start_x), 0),
+		"route": [], "next_state": "", "speed": APPROACH_SPEED, "gate": -1, "timer": 0.0,
+		"landing_cleared": false, "approach_decision": true, "heading": -PI / 2.0}
+	aircraft.append(flight)
+	_begin_approach(flight)
 	return id
 
 func find_flight(id: String) -> Dictionary:
@@ -49,17 +73,28 @@ func tick(delta: float) -> void:
 		var budget: float = flight.speed * delta
 		while budget > 0 and not flight.route.is_empty():
 			var target: Vector3 = flight.route[0]
+			var direction: Vector3 = target - flight.pos
+			if Vector2(direction.x, direction.z).length() > 0.001:
+				flight.heading = atan2(-direction.x, -direction.z)
 			var distance: float = flight.pos.distance_to(target)
 			if budget >= distance:
 				flight.pos = target
 				flight.route.pop_front()
 				budget -= distance
+				if flight.get("approach_decision", false) and is_equal_approx(target.x, DECISION_X):
+					flight.approach_decision = false
+					if not flight.landing_cleared:
+						_go_around(flight)
+					else:
+						flight.speed = 1.5
 			else:
 				flight.pos = flight.pos.move_toward(target, budget)
 				budget = 0
 		if flight.route.is_empty():
 			flight.state = flight.next_state
 			match flight.state:
+				"Inbound":
+					_begin_approach(flight)
 				"Landed":
 					_note(flight.id + ": landing complete, request runway exit.")
 				"Clear of runway":
@@ -101,7 +136,8 @@ func command(id: String, action: String) -> bool:
 			if not runway_owner.is_empty():
 				return _reject("Unsafe landing clearance: runway reserved by " + runway_owner + ".")
 			runway_owner = id
-			_route(flight, [Vector3(-38, 0.8, 0), Vector3(12, 0.8, 0)], "Landing", "Landed", 10)
+			flight.landing_cleared = true
+			flight.state = "Landing"
 			_note(id + ": runway 09, cleared to land.")
 		"exit":
 			if flight.state != "Landed":
@@ -191,7 +227,8 @@ func suggested_action(id: String) -> String:
 	if flight.is_empty():
 		return "Spawn an arrival to start a new aircraft cycle."
 	match flight.state:
-		"Inbound": return "Tower → Clear to land"
+		"Inbound": return "On approach / Tower: clear to land before short final"
+		"Going around": return "Going around. Wait for the next approach report."
 		"Landed": return "Tower → Exit runway"
 		"Clear of runway": return "Ground → Taxi to gate"
 		"Ready for pushback": return "Ground → Approve pushback"

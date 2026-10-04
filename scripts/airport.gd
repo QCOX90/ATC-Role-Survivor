@@ -97,6 +97,7 @@ func _process(delta: float) -> void:
 	for flight in sim.aircraft:
 		if not models.has(flight.id):
 			models[flight.id] = _aircraft_model(flight.id)
+			models[flight.id].rotation.y = flight.get("heading", -PI / 2.0)
 		var model: Node3D = models[flight.id]
 		model.position = flight.pos
 		if not flight.route.is_empty():
@@ -104,7 +105,10 @@ func _process(delta: float) -> void:
 			var flat := target - model.position
 			flat.y = 0
 			if flat.length() > 0.01:
-				model.rotation.y = lerp_angle(model.rotation.y, atan2(-flat.x, -flat.z), minf(delta * 4.0, 1.0))
+				model.rotation.y = lerp_angle(model.rotation.y, flight.get("heading", atan2(-flat.x, -flat.z)), minf(delta * 4.0, 1.0))
+				var direction: Vector3 = target - model.position
+				var pitch := clampf(atan2(direction.y, flat.length()), deg_to_rad(-5), deg_to_rad(12))
+				model.rotation.x = lerp_angle(model.rotation.x, pitch, minf(delta * 3.0, 1.0))
 	for id in models.keys():
 		if sim.find_flight(id).is_empty():
 			models[id].queue_free()
@@ -256,7 +260,7 @@ func _build_ui() -> void:
 	banner.size = Vector2(830, 110)
 	root.add_child(banner)
 	_label(banner, "ATC ROLE SURVIVOR", 30, WHITE)
-	_label(banner, "HARBOR FIELD / GROUND + TOWER / BAY SCENERY / PREVIEW 0.4", 15, CYAN)
+	_label(banner, "HARBOR FIELD / GROUND + TOWER / FLYING ARRIVALS 0.5", 15, CYAN)
 	stats = _label(banner, "", 16)
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
@@ -371,6 +375,9 @@ func _refresh() -> void:
 		if ids[index] == selected: flight_list.select(index)
 	var flight: Dictionary = sim.find_flight(selected)
 	details.text = "Selected: " + selected + " / " + str(flight.get("state", "No active flight"))
+	if flight.get("state", "") in ["Inbound", "Landing"]:
+		var distance_nm: float = maxf(Operations.THRESHOLD_X - flight.pos.x, 0) * Operations.METERS_PER_UNIT / 1852.0
+		details.text += " / %.1f NM final" % distance_nm
 	hint.text = sim.suggested_action(selected)
 	runway_status.text = "RUNWAY 09  ·  " + ("AVAILABLE" if sim.runway_owner.is_empty() else "RESERVED: " + sim.runway_owner)
 	runway_status.modulate = CYAN if sim.runway_owner.is_empty() else Color("ffd269")

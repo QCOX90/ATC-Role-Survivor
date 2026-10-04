@@ -60,3 +60,7 @@ The game starts inside the tower cab at Harbor Field. Hold the left mouse button
 ## Bay scenery preview 0.4
 San Francisco-inspired fictional surroundings now include sculpted rolling terrain, a curved shoreline, animated bay water, a waterfront suspension bridge, distant urban buildings, hillside trees, roads and airport access. The airport has four functional gates and a four-aircraft capacity. All geometry remains original and generated locally. This preview does not yet include the career, weather, voice or full FAA-rule systems described in the design brief.
 
+
+## Flying arrivals 0.5
+Arrivals report on approach and begin four nautical miles from the threshold using an explicit 40-meters-per-world-unit scale and a nominal three-degree final. Additional arrivals start farther out for spacing. They move and descend continuously before clearance, face their flight path, and show distance to the threshold. Clearance permits landing without changing aircraft position. An uncleared flight goes around at the short-final decision point, climbs and returns for another approach. The radar automatically includes distant flights. Speeds, rollout and the return circuit remain simplified prototype behavior, not full FAA separation or missed-approach procedures.
+
