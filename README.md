@@ -4,6 +4,12 @@ A Godot 4.7.2 prototype for a controller-position game. The first playable slice
 
 ## Play
 
+**Browser prototype:** [Play ATC Role Survivor](https://qcox90.github.io/ATC-Role-Survivor/).
+
+GitHub Pages serves the browser build after the deployment workflow completes. Use a current browser with WebGL 2 support. No download or Godot installation is needed to play in the browser.
+
+### Run locally
+
 Import `project.godot` in the standard Godot editor and press **F5**. No .NET SDK, account, external models, or paid license is required. The project can be run directly with the standard Godot executable as well.
 
 1. Select **SUR101**, stay on **Tower**, and choose **Clear to land**.
@@ -38,3 +44,7 @@ Movement, geometry, speeds, and clearances are simplified game mechanics. This i
 Run checks: `godot --headless --path . --script res://tests/operations_test.gd`.
 
 All coding for this project is handled through Codex. Godot's generated `.godot` cache is excluded from version control. The earlier Memphis browser trainer remains a separate repository.
+
+## Browser publishing
+
+`export_presets.cfg` exports the same game to Web using single-threaded Compatibility rendering. `.github/workflows/pages.yml` downloads the official Godot 4.7.2 editor and export templates, checks the simulation, exports the game, and deploys it to GitHub Pages on every push to `main`. Pages must use **GitHub Actions** as its publishing source.
