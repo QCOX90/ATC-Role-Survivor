@@ -11,6 +11,10 @@ func height_at(x: float, z: float) -> float:
 	hill += 65.0 * exp(-pow((x - 175.0) / 140.0, 2) - pow((z - 280.0) / 100.0, 2))
 	var detail := maxf(z - 85.0, absf(x) - 100.0)
 	var rough := noise.get_noise_2d(x, z) * 9.0 * smoothstep(0, 80, detail)
+	# Preserve the airport's approach corridor instead of raising a hill through final.
+	var corridor := smoothstep(18.0, 65.0, absf(z)) if x < 60 else 1.0
+	hill *= corridor
+	rough *= corridor
 	return lerpf(-2.0, -0.3 + hill + rough, land)
 
 func _ready() -> void:
