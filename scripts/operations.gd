@@ -10,15 +10,15 @@ var departures := 0
 var errors := 0
 var serial := 101
 var radio: Array[String] = []
-const GATES := [-20.0, 0.0, 20.0]
+const GATES := [-27.0, -9.0, 9.0, 27.0]
 
 func _init() -> void:
 	spawn_arrival()
 	_note("Welcome to Harbor Field. Select a flight, then issue a clearance.")
 
 func spawn_arrival() -> String:
-	if aircraft.size() >= 3:
-		_note("Traffic limit reached. Work the three active flights first.")
+	if aircraft.size() >= 4:
+		_note("Traffic limit reached. Work the four active flights first.")
 		return ""
 	var id := "SUR" + str(serial)
 	serial += 1
@@ -199,3 +199,4 @@ func suggested_action(id: String) -> String:
 		"Holding short": return "Tower → Clear for takeoff"
 		"Turnaround": return "Wait for the turnaround to finish."
 		_: return "Aircraft is moving. Wait for its next request."
+

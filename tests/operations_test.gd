@@ -46,5 +46,15 @@ func _initialize() -> void:
 	verify(sim.departures == 1 and sim.find_flight(id).is_empty(), "Full cycle completed")
 	verify(sim.runway_owner.is_empty(), "Departure releases runway")
 	verify(sim.command(second, "land"), "Next arrival can use runway")
+	var gates_sim = Operations.new()
+	gates_sim.position = "Ground"
+	for gate in range(4):
+		var gate_id: String = "SUR101" if gate == 0 else gates_sim.spawn_arrival()
+		var parked: Dictionary = gates_sim.find_flight(gate_id)
+		parked.state = "Clear of runway"
+		parked.pos = Vector3(12, 0.8, 12)
+		verify(gates_sim.command(gate_id, "gate"), "Every gate accepts a reservation")
+		verify(parked.gate == gate, "Gate reservations remain distinct")
+	verify(gates_sim.spawn_arrival().is_empty(), "Four-flight capacity is enforced")
 	print("PASS: ", checks, " operational checks, including complete aircraft lifecycle")
 	quit(0)

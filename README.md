@@ -56,3 +56,7 @@ Original procedural jet geometry with rounded fuselage, swept wings, engines, co
 ## Tower experience 0.3
 The game starts inside the tower cab at Harbor Field. Hold the left mouse button and drag over the airport view to turn your head through 360 degrees. Scroll over the view to zoom; Home or the Inside tower button resets the view. Touch users can drag with one finger. Camera dragging starts only outside interface controls, and releasing the button or losing focus ends dragging. Airport, Apron close-up and Runway view return to the overview cameras. Tower geometry includes clear windows, framing, desks, monitors, flight strips and a radio console. This is an original airport and interface, not a reproduction of another game's assets.
 
+
+## Bay scenery preview 0.4
+San Francisco-inspired fictional surroundings now include sculpted rolling terrain, a curved shoreline, animated bay water, a waterfront suspension bridge, distant urban buildings, hillside trees, roads and airport access. The airport has four functional gates and a four-aircraft capacity. All geometry remains original and generated locally. This preview does not yet include the career, weather, voice or full FAA-rule systems described in the design brief.
+

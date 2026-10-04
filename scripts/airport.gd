@@ -256,7 +256,7 @@ func _build_ui() -> void:
 	banner.size = Vector2(830, 110)
 	root.add_child(banner)
 	_label(banner, "ATC ROLE SURVIVOR", 30, WHITE)
-	_label(banner, "HARBOR FIELD / GROUND + TOWER / TOWER EXPERIENCE 0.3", 15, CYAN)
+	_label(banner, "HARBOR FIELD / GROUND + TOWER / BAY SCENERY / PREVIEW 0.4", 15, CYAN)
 	stats = _label(banner, "", 16)
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)

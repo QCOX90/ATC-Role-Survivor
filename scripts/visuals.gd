@@ -95,8 +95,9 @@ func label(text: String, at: Vector3, color: Color, size: int = 32, flat: bool =
 	add_child(node)
 
 func airport() -> void:
-	box(self, Vector3(0, -0.8, 0), Vector3(2000, 0.1, 2000), Color("718465"))
-	var grass := box(self, Vector3(0, -0.55, 0), Vector3(400, 0.8, 300), Color.WHITE)
+	var surroundings := preload("res://scripts/scenery.gd").new()
+	add_child(surroundings)
+	var grass := box(self, Vector3(0, -0.55, 30), Vector3(180, 0.8, 110), Color.WHITE)
 	grass.material_override = surface_material(Color("718465"), 12)
 	var runway := box(self, Vector3(0, 0, 0), Vector3(104, 0.2, 8), Color.WHITE)
 	runway.material_override = surface_material(Color("343a3c"), 21)
@@ -138,8 +139,8 @@ func airport() -> void:
 		box(self, Vector3(x, 4.7, 40), Vector3(3, 0.7, 2), Color("7d8c8b"))
 	box(self, Vector3(0, 1.8, 45), Vector3(18, 3.6, 7), GLASS)
 	label("H A R B O R   F I E L D", Vector3(0, 5.4, 37), Color("f7eddb"), 26)
-	for gate in range(3):
-		var x: float = [-20.0, 0.0, 20.0][gate]
+	for gate in range(4):
+		var x: float = [-27.0, -9.0, 9.0, 27.0][gate]
 		box(self, Vector3(x, 0.17, 23), Vector3(0.13, 0.02, 17), Color("efd177"))
 		box(self, Vector3(x, 0.18, 26), Vector3(4, 0.02, 0.13), Color("efd177"))
 		label("G" + str(gate + 1), Vector3(x, 0.2, 30), Color("efe5b5"), 38, true)
@@ -166,8 +167,8 @@ func airport() -> void:
 	var random := RandomNumberGenerator.new()
 	random.seed = 82
 	for index in range(70):
-		var x := random.randf_range(-130, 130)
-		var z := random.randf_range(-75, 90)
+		var x := random.randf_range(-85, 85)
+		var z := random.randf_range(-15, 90)
 		if abs(x) < 58 and z > -12 and z < 78: continue
 		cylinder(self, Vector3(x, 1, z), 0.18, 2, Color("6c6550"))
 		sphere(self, Vector3(x, 2.7, z), Vector3(1.5, 2.2, 1.5), Color("4e6e51"))
@@ -213,5 +214,7 @@ func aircraft(id: String) -> Node3D:
 	call_sign.modulate = Color("b2f5ef")
 	plane.add_child(call_sign)
 	return plane
+
+
 
 
