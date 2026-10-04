@@ -5,6 +5,7 @@ var aircraft: Array[Dictionary] = []
 var runway_owner := ""
 var position := "Tower"
 var paused := false
+var time_scale := 1.0
 var elapsed := 0.0
 var departures := 0
 var errors := 0
@@ -60,6 +61,7 @@ func find_flight(id: String) -> Dictionary:
 func tick(delta: float) -> void:
 	if paused:
 		return
+	delta *= time_scale
 	elapsed += delta
 	var completed: Array[String] = []
 	for flight in aircraft:
@@ -75,7 +77,7 @@ func tick(delta: float) -> void:
 			var target: Vector3 = flight.route[0]
 			var direction: Vector3 = target - flight.pos
 			if Vector2(direction.x, direction.z).length() > 0.001:
-				flight.heading = atan2(-direction.x, -direction.z)
+				flight.heading = atan2(direction.x, direction.z) if flight.state == "Pushing back" else atan2(-direction.x, -direction.z)
 			var distance: float = flight.pos.distance_to(target)
 			if budget >= distance:
 				flight.pos = target
@@ -104,6 +106,7 @@ func tick(delta: float) -> void:
 					flight.timer = 12.0
 					_note(flight.id + ": parked at gate " + str(flight.gate + 1) + ". Turning around.")
 				"On taxiway":
+					flight.heading = PI / 2.0
 					_note(flight.id + ": pushback complete, request taxi runway 09.")
 				"Holding short":
 					_note(flight.id + ": holding short runway 09. Contacting Tower.")
@@ -156,7 +159,8 @@ func command(id: String, action: String) -> bool:
 		"pushback":
 			if flight.state != "Ready for pushback":
 				return _reject(id + ": pushback available after turnaround.", false)
-			_route(flight, [Vector3(GATES[flight.gate], 0.8, 12)], "Pushing back", "On taxiway", 2)
+			var gate_x: float = GATES[flight.gate]
+			_route(flight, [Vector3(gate_x, 0.8, 18), Vector3(gate_x + 0.3, 0.8, 15.6), Vector3(gate_x + 1.2, 0.8, 13.6), Vector3(gate_x + 3.0, 0.8, 12.4), Vector3(gate_x + 4.8, 0.8, 12)], "Pushing back", "On taxiway", 1.5)
 			_note(id + ": pushback approved.")
 		"taxi":
 			if flight.state != "On taxiway":

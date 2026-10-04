@@ -12,6 +12,7 @@ var radio: RichTextLabel
 var hint: Label
 var input: LineEdit
 var pause_button: Button
+var speed_button: Button
 var tower_button: Button
 var ground_button: Button
 var radar: Control
@@ -100,12 +101,12 @@ func _process(delta: float) -> void:
 			models[flight.id].rotation.y = flight.get("heading", -PI / 2.0)
 		var model: Node3D = models[flight.id]
 		model.position = flight.pos
+		model.rotation.y = lerp_angle(model.rotation.y, flight.get("heading", model.rotation.y), minf(delta * sim.time_scale * 4.0, 1.0))
 		if not flight.route.is_empty():
 			var target: Vector3 = flight.route[0]
 			var flat := target - model.position
 			flat.y = 0
 			if flat.length() > 0.01:
-				model.rotation.y = lerp_angle(model.rotation.y, flight.get("heading", atan2(-flat.x, -flat.z)), minf(delta * 4.0, 1.0))
 				var direction: Vector3 = target - model.position
 				var pitch := clampf(atan2(direction.y, flat.length()), deg_to_rad(-5), deg_to_rad(12))
 				model.rotation.x = lerp_angle(model.rotation.x, pitch, minf(delta * 3.0, 1.0))
@@ -260,7 +261,7 @@ func _build_ui() -> void:
 	banner.size = Vector2(830, 110)
 	root.add_child(banner)
 	_label(banner, "ATC ROLE SURVIVOR", 30, WHITE)
-	_label(banner, "HARBOR FIELD / GROUND + TOWER / FLYING ARRIVALS 0.5", 15, CYAN)
+	_label(banner, "HARBOR FIELD / GROUND + TOWER / OPERATIONS FIXES 0.6", 15, CYAN)
 	stats = _label(banner, "", 16)
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
@@ -319,6 +320,8 @@ func _build_ui() -> void:
 		var id: String = sim.spawn_arrival()
 		if not id.is_empty(): selected = id)
 	_button(session, "Reset", _reset)
+	speed_button = _button(controls, "Simulation speed: 1x", func():
+		sim.time_scale = sim.time_scale * 2 if sim.time_scale < 8 else 1)
 	_label(controls, "PILOT READBACKS + REQUESTS", 13, CYAN)
 	radio = RichTextLabel.new()
 	radio.custom_minimum_size.y = 155
@@ -383,6 +386,7 @@ func _refresh() -> void:
 	runway_status.modulate = CYAN if sim.runway_owner.is_empty() else Color("ffd269")
 	stats.text = "Cycles completed: %d    Safety errors: %d    Time: %02d:%02d" % [sim.departures, sim.errors, int(sim.elapsed) / 60, int(sim.elapsed) % 60]
 	pause_button.text = "Resume" if sim.paused else "Pause"
+	speed_button.text = "Simulation speed: %dx / click to change" % int(sim.time_scale)
 	tower_button.modulate = CYAN if sim.position == "Tower" else WHITE
 	ground_button.modulate = CYAN if sim.position == "Ground" else WHITE
 	var transcript := "\n\n".join(sim.radio)

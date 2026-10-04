@@ -77,6 +77,39 @@ func _initialize() -> void:
 	verify(cleared_sim.find_flight("SUR101").pos == before_clearance, "Clearance does not teleport aircraft")
 	cleared_sim.tick(130)
 	verify(cleared_sim.find_flight("SUR101").state == "Landed", "Cleared approach touches down and rolls out")
+	var reverse_sim = Operations.new()
+	reverse_sim.position = "Ground"
+	var reverse_flight: Dictionary = reverse_sim.find_flight("SUR101")
+	reverse_flight.state = "Ready for pushback"
+	reverse_flight.route = []
+	reverse_flight.gate = 0
+	reverse_flight.pos = Vector3(Operations.GATES[0], 0.8, 24)
+	reverse_flight.heading = PI
+	verify(reverse_sim.command("SUR101", "pushback"), "Pushback accepted from parked gate")
+	var parked_position: Vector3 = reverse_flight.pos
+	reverse_sim.tick(0.5)
+	var forward := Vector3(-sin(reverse_flight.heading), 0, -cos(reverse_flight.heading))
+	verify(forward.dot(reverse_flight.pos - parked_position) < 0, "Pushback displacement is behind the aircraft nose")
+	verify(absf(wrapf(reverse_flight.heading - PI, -PI, PI)) < 0.01, "Initial pushback does not flip the aircraft")
+	reverse_sim.tick(20)
+	verify(reverse_flight.state == "On taxiway" and is_equal_approx(reverse_flight.heading, PI / 2.0), "Pushback ends facing the outbound taxi direction")
+	verify(reverse_flight.pos.x > Operations.GATES[0] and reverse_flight.pos.z == 12, "Curved reverse path reaches taxiway")
+	var fast_sim = Operations.new()
+	fast_sim.time_scale = 8
+	fast_sim.command("SUR101", "land")
+	var normal_sim = Operations.new()
+	normal_sim.command("SUR101", "land")
+	fast_sim.tick(1)
+	normal_sim.tick(8)
+	verify(fast_sim.find_flight("SUR101").pos.is_equal_approx(normal_sim.find_flight("SUR101").pos), "Eight-times speed matches normal elapsed simulation time")
+	fast_sim.paused = true
+	var fast_position: Vector3 = fast_sim.find_flight("SUR101").pos
+	fast_sim.tick(20)
+	verify(fast_sim.find_flight("SUR101").pos == fast_position, "Pause still freezes accelerated simulation")
+	var fast_uncleared = Operations.new()
+	fast_uncleared.time_scale = 8
+	fast_uncleared.tick(12)
+	verify(fast_uncleared.find_flight("SUR101").state == "Going around", "Accelerated time preserves the uncleared approach decision")
 	print("PASS: ", checks, " operational checks, including complete aircraft lifecycle")
 	quit(0)
 

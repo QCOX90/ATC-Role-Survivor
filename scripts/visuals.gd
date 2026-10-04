@@ -166,10 +166,10 @@ func airport() -> void:
 		box(self, Vector3(x, 4.15, 34), Vector3(17, 0.3, 13), Color("d0cbb7"))
 	var random := RandomNumberGenerator.new()
 	random.seed = 82
-	for index in range(70):
+	for index in range(45):
 		var x := random.randf_range(-85, 85)
-		var z := random.randf_range(-15, 90)
-		if abs(x) < 58 and z > -12 and z < 78: continue
+		var z := random.randf_range(76, 88)
+		# Landside perimeter only: keep trees outside the runway and approach strip.
 		cylinder(self, Vector3(x, 1, z), 0.18, 2, Color("6c6550"))
 		sphere(self, Vector3(x, 2.7, z), Vector3(1.5, 2.2, 1.5), Color("4e6e51"))
 

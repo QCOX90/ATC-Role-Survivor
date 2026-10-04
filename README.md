@@ -64,3 +64,7 @@ San Francisco-inspired fictional surroundings now include sculpted rolling terra
 ## Flying arrivals 0.5
 Arrivals report on approach and begin four nautical miles from the threshold using an explicit 40-meters-per-world-unit scale and a nominal three-degree final. Additional arrivals start farther out for spacing. They move and descend continuously before clearance, face their flight path, and show distance to the threshold. Clearance permits landing without changing aircraft position. An uncleared flight goes around at the short-final decision point, climbs and returns for another approach. The radar automatically includes distant flights. Speeds, rollout and the return circuit remain simplified prototype behavior, not full FAA separation or missed-approach procedures.
 
+
+## Operations fixes 0.6
+Pushback follows a tail-first curved path and leaves aircraft facing toward the runway taxi route. Aircraft heading is separate from travel direction while reversing. Trees formerly beside the runway are now restricted to the landside perimeter; distant hillside vegetation remains outside airport operations. A Simulation speed button cycles 1x, 2x, 4x and 8x. Pause still freezes the simulation, Reset restores normal speed, and approach go-around decisions remain active at faster speeds. Forty-eight operational checks cover reverse movement, gate alignment, acceleration and pause.
+
