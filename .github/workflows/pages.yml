@@ -35,7 +35,8 @@ jobs:
       - name: Export browser game
         run: |
           mkdir -p build/web
-          /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --export-release Web build/web/index.html
+          /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --export-release Web "build/web/game-${GITHUB_SHA}.html"
+          mv "build/web/game-${GITHUB_SHA}.html" build/web/index.html
           touch build/web/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -50,3 +51,4 @@ jobs:
       - name: Publish browser game
         id: deployment
         uses: actions/deploy-pages@v4
+
