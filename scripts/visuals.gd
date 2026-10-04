@@ -95,6 +95,7 @@ func label(text: String, at: Vector3, color: Color, size: int = 32, flat: bool =
 	add_child(node)
 
 func airport() -> void:
+	box(self, Vector3(0, -0.8, 0), Vector3(2000, 0.1, 2000), Color("718465"))
 	var grass := box(self, Vector3(0, -0.55, 0), Vector3(400, 0.8, 300), Color.WHITE)
 	grass.material_override = surface_material(Color("718465"), 12)
 	var runway := box(self, Vector3(0, 0, 0), Vector3(104, 0.2, 8), Color.WHITE)
@@ -150,9 +151,9 @@ func airport() -> void:
 			box(self, Vector3(x + offset, 0.95, 30.6), Vector3(1.2, 0.45, 0.9), GLASS)
 	# Tower with tapered shaft, wraparound glass cab and antenna.
 	cylinder(self, Vector3(39, 5, 33), 1.6, 10, Color("c9c4b5"), 1.0)
-	cylinder(self, Vector3(39, 10.6, 33), 2.8, 1.4, GLASS, 3.2)
-	cylinder(self, Vector3(39, 11.5, 33), 3.4, 0.4, Color("e4dcca"))
-	cylinder(self, Vector3(39, 13, 33), 0.06, 3, Color("657279"))
+	cylinder(self, Vector3(39, 10.6, 33), 2.8, 1.4, GLASS, 3.2).add_to_group("tower_shell")
+	cylinder(self, Vector3(39, 11.5, 33), 3.4, 0.4, Color("e4dcca")).add_to_group("tower_shell")
+	cylinder(self, Vector3(39, 13, 33), 0.06, 3, Color("657279")).add_to_group("tower_shell")
 	# Landside access, parking stalls and modest background buildings.
 	box(self, Vector3(0, -0.02, 53), Vector3(160, 0.1, 5), Color("505a58"))
 	box(self, Vector3(0, -0.02, 65), Vector3(72, 0.1, 17), Color("6a726b"))
@@ -212,4 +213,5 @@ func aircraft(id: String) -> Node3D:
 	call_sign.modulate = Color("b2f5ef")
 	plane.add_child(call_sign)
 	return plane
+
 

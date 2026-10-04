@@ -20,6 +20,11 @@ var list_ids: Array[String] = []
 var camera: Camera3D
 var visuals: Node3D
 var view_index := 0
+var tower_room: Node3D
+var look_dragging := false
+var look_yaw := 0.0
+var look_pitch := 0.0
+var camera_help: Label
 
 const NAVY := Color("101c2c")
 const CYAN := Color("68e2df")
@@ -33,6 +38,10 @@ func _ready() -> void:
 		_capture_preview()
 
 func _capture_preview() -> void:
+	if OS.get_cmdline_user_args().has("--tower-showcase"):
+		sim.command(selected, "land")
+		sim.tick(30.0)
+		_set_view(3)
 	if OS.get_cmdline_user_args().has("--showcase"):
 		sim.command(selected, "land")
 		sim.tick(30.0)
@@ -43,6 +52,45 @@ func _capture_preview() -> void:
 	var destination := OS.get_cmdline_user_args()[1]
 	var result := get_viewport().get_texture().get_image().save_png(destination)
 	get_tree().quit(result)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		look_dragging = false
+
+func _input(event: InputEvent) -> void:
+	# Release anywhere, including over the control desk, so dragging cannot stick.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		look_dragging = false
+	if event is InputEventMouseMotion and look_dragging and view_index == 3:
+		if not (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+			look_dragging = false
+			return
+		_rotate_look(event.relative)
+		get_viewport().set_input_as_handled()
+	if event is InputEventScreenDrag and look_dragging and view_index == 3:
+		_rotate_look(event.relative)
+		get_viewport().set_input_as_handled()
+	if event is InputEventScreenTouch and not event.pressed:
+		look_dragging = false
+
+func _unhandled_input(event: InputEvent) -> void:
+	if view_index != 3: return
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			look_dragging = event.pressed
+		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			camera.fov = clampf(camera.fov - 4, 30, 85)
+		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			camera.fov = clampf(camera.fov + 4, 30, 85)
+	if event is InputEventScreenTouch:
+		look_dragging = event.pressed
+	if event is InputEventKey and event.pressed and event.keycode == KEY_HOME:
+		_set_view(3)
+
+func _rotate_look(relative: Vector2) -> void:
+	look_yaw = wrapf(look_yaw - relative.x * 0.004, -PI, PI)
+	look_pitch = clampf(look_pitch - relative.y * 0.004, deg_to_rad(-70), deg_to_rad(75))
+	camera.rotation = Vector3(look_pitch, look_yaw, 0)
 
 func _process(delta: float) -> void:
 	sim.tick(delta)
@@ -119,15 +167,32 @@ func _build_airport() -> void:
 	visuals = preload("res://scripts/visuals.gd").new()
 	add_child(visuals)
 	visuals.airport()
+	tower_room = preload("res://scripts/tower_room.gd").new()
+	tower_room.position = Vector3(39, 9.9, 33)
+	add_child(tower_room)
 	camera = Camera3D.new()
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	add_child(camera)
-	_set_view(0)
+	_set_view(3)
 	camera.current = true
 
 func _set_view(index: int) -> void:
 	view_index = index
-	if index == 0:
+	look_dragging = false
+	tower_room.visible = index == 3
+	for shell in get_tree().get_nodes_in_group("tower_shell"):
+		shell.visible = index != 3
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE if index == 3 else Camera3D.PROJECTION_ORTHOGONAL
+	camera.near = 0.05
+	camera.far = 1000
+	if is_instance_valid(camera_help): camera_help.visible = index == 3
+	if index == 3:
+		camera.position = Vector3(39, 12.15, 33)
+		camera.fov = 68
+		camera.look_at(Vector3(12, 0, 0))
+		look_yaw = camera.rotation.y
+		look_pitch = camera.rotation.x
+	elif index == 0:
 		camera.position = Vector3(-30, 68, 87)
 		camera.size = 100
 		camera.look_at(Vector3(17, 0, 12))
@@ -191,7 +256,7 @@ func _build_ui() -> void:
 	banner.size = Vector2(830, 110)
 	root.add_child(banner)
 	_label(banner, "ATC ROLE SURVIVOR", 30, WHITE)
-	_label(banner, "HARBOR FIELD / GROUND + TOWER / VISUAL PREVIEW 0.2", 15, CYAN)
+	_label(banner, "HARBOR FIELD / GROUND + TOWER / TOWER EXPERIENCE 0.3", 15, CYAN)
 	stats = _label(banner, "", 16)
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
@@ -260,9 +325,14 @@ func _build_ui() -> void:
 	var views := HBoxContainer.new()
 	views.position = Vector2(28, 140)
 	root.add_child(views)
+	_button(views, "Inside tower", func(): _set_view(3))
 	_button(views, "Airport", func(): _set_view(0))
 	_button(views, "Apron close-up", func(): _set_view(1))
 	_button(views, "Runway view", func(): _set_view(2))
+	camera_help = _label(root, "Hold left mouse + drag to look around / Scroll to zoom / Home resets view", 14, WHITE)
+	camera_help.position = Vector2(28, 188)
+	camera_help.size = Vector2(710, 28)
+	camera_help.visible = view_index == 3
 	var footer := Label.new()
 	footer.position = Vector2(28, 758)
 	footer.text = "Fictional airport · Simplified movement · Early game prototype"
@@ -312,6 +382,8 @@ func _refresh() -> void:
 	if transcript != last_radio:
 		radio.text = transcript
 		last_radio = transcript
+
+
 
 
 
