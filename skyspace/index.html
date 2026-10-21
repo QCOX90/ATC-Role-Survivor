@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#071521">
 <title>SKYSPACE / MEM — Live 3D Airspace Explorer</title>
-<meta name="build" content="skyspace-v1.2-multi-provider">
+<meta name="build" content="skyspace-v1.3-python-feeder">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.131.0/Build/Cesium/Widgets/widgets.css">
 <style>
 :root{color-scheme:dark;--bg:#061421;--panel:#0a1e2d;--edge:#274458;--muted:#90aab7;--txt:#e6f6fb;--cyan:#6ee4f1;--blue:#368ee9;--purple:#ad8afb;--amber:#f9bb61}
@@ -47,7 +47,7 @@ header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-be
 <label class="toggle">Flight trails<input type="checkbox" id="trails" checked></label></div>
 <div class="line"></div><div class="row"><span class="subtitle">MAX DISPLAY ALTITUDE</span><b id="altText" style="font-size:12px">45,000 FT</b></div>
 <input class="range" type="range" id="altitude" min="2000" max="45000" step="1000" value="45000"></div>
-<div class="section"><div class="kicker">DATA SOURCES</div><div class="row subtitle"><span>FAA airspace</span><b id="faaStatus">LOADING</b></div><div style="height:9px"></div><div class="row subtitle"><span>Aircraft ADS-B</span><b id="planeStatus">LOADING</b></div><p class="help">Live aircraft are requested through the free cors.dev relay from adsb.fi, ADSB One, Airplanes.live and ADSB.lol in order. If all feeds are unavailable, the dashboard clearly shows OFFLINE.</p><button class="btn full" id="refresh">↻ REFRESH NOW</button><div style="height:8px"></div><button class="btn full soft" id="demo">TRY SIMULATED FLIGHTS</button></div>
+<div class="section"><div class="kicker">DATA SOURCES</div><div class="row subtitle"><span>FAA airspace</span><b id="faaStatus">LOADING</b></div><div style="height:9px"></div><div class="row subtitle"><span>Aircraft ADS-B</span><b id="planeStatus">LOADING</b></div><p class="help">Run START_SKYSPACE_FEED.bat on this Windows PC for live ADS-B. If local data is unavailable, the page tries a delayed snapshot from the skyspace-live GitHub branch. Snapshots are labeled and never described as live.</p><button class="btn full" id="refresh">↻ REFRESH NOW</button><div style="height:8px"></div><button class="btn full soft" id="demo">TRY SIMULATED FLIGHTS</button></div>
 <div class="section"><div class="kicker">LIMITATIONS</div><div class="help">Educational visualization only. Not for navigation, ATC separation or operational decision-making. Airspace limits are approximated on an ellipsoid; some SFC/AGL interpretations require terrain data. ADS-B can be delayed or incomplete.</div></div>
 </aside>
 <main class="map" id="map"><div id="globe"></div><div id="loading" class="loading"><strong>LOADING 3D AIRSPACE EXPLORER</strong><span>Initializing Cesium globe…</span></div>
@@ -95,56 +95,46 @@ trails.forEach(function(_,k){if(!aircraft.some(function(p){return p.hex===k}))tr
 function renderList(){var q=el('search').value.toUpperCase(),sort=el('sort').value;var a=aircraft.filter(function(p){return p.alt<=Number(el('altitude').value)&&(p.flight.toUpperCase().includes(q)||p.type.toUpperCase().includes(q)||p.reg.toUpperCase().includes(q))});a.sort(function(x,y){return sort==='alt'?x.alt-y.alt:sort==='name'?x.flight.localeCompare(y.flight):x.nm-y.nm});var list=el('flights');list.innerHTML='';if(!a.length){list.innerHTML='<p class="help">No aircraft match the current filter or the live feed is unavailable.</p>';return}a.slice(0,120).forEach(function(p){var b=document.createElement('button');b.className='flight'+(p.hex===selected?' selected':'');b.innerHTML='<span><b>'+safe(p.flight)+'</b><small>'+safe(p.type)+' · '+safe(p.reg||p.hex)+'</small></span><span><b>'+comma(p.alt)+' FT</b><small>'+p.nm.toFixed(1)+' NM</small></span>';b.onclick=function(){select(p.hex,true)};list.appendChild(b)})}
 function select(hex,focus){selected=hex;refreshPlaneGraphics();var p=aircraft.find(function(a){return a.hex===hex});if(focus&&p&&viewer)viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(p.lon,p.lat,Math.max(16000,p.alt*FT+16000)),orientation:{heading:0,pitch:Cesium.Math.toRadians(-65),roll:0},duration:1.1})}
 function renderDetails(){var p=aircraft.find(function(a){return a.hex===selected}),o=el('details');if(!p){o.innerHTML='<p class="help">Click a plane or select a flight to inspect its telemetry.</p>';return}var matches=match(p);var data=[['Baro altitude',comma(p.alt)+' FT'],['Ground speed',p.gs==null?'—':comma(p.gs)+' KTS'],['Track',comma(p.track)+'°'],['Vertical rate',p.vertical==null?'—':comma(p.vertical)+' FT/MIN'],['Squawk',p.squawk],['Aircraft',p.type],['ICAO hex',p.hex.toUpperCase()],['From KMEM',p.nm.toFixed(1)+' NM']];o.innerHTML='<strong>'+safe(p.flight)+'</strong><p class="subtitle">'+(sim?'SIMULATED FLIGHT':'ADS-B POSITION')+'</p>'+data.map(function(r){return '<div class="kv"><span>'+safe(r[0])+'</span><b>'+safe(r[1])+'</b></div>'}).join('')+'<p class="help"><b>Approximate airspace:</b><br>'+(matches.length?matches.map(function(a){return 'Class '+a.cls+' · '+a.floorText+'–'+comma(a.ceiling)+' FT MSL'}).join('<br>'):'No matching downloaded B/C/D volume at this altitude')+'</p>'; }
-var LIVE_FEEDS=[
-{name:'adsb.fi',url:'https://opendata.adsb.fi/api/v3/lat/35.0424/lon/-89.9767/dist/85'},
-{name:'ADSB One',url:'https://api.adsb.one/v2/point/35.0424/-89.9767/85'},
-{name:'Airplanes.live',url:'https://api.airplanes.live/v2/point/35.0424/-89.9767/85'},
-{name:'ADSB.lol',url:'https://api.adsb.lol/v2/point/35.0424/-89.9767/85'}];
-var configuredRelay='';
-try{configuredRelay=localStorage.getItem('skyspace-relay-url')||''}catch(_){}
-async function feedRequest(u,timeout){
-var controller=new AbortController(),alarm=setTimeout(function(){controller.abort()},timeout||11500);
+var LOCAL_URL='http://127.0.0.1:8766/aircraft';
+var SNAPSHOT_URL='https://raw.githubusercontent.com/QCOX90/ATC-Role-Survivor/skyspace-live/aircraft.json';
+async function getJsonFeed(url,timeout){
+var ctrl=new AbortController(),timer=setTimeout(function(){ctrl.abort()},timeout);
 try{
-var response=await fetch(u,{method:'GET',mode:'cors',credentials:'omit',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+var response=await fetch(url,{cache:'no-store',signal:ctrl.signal,credentials:'omit',mode:'cors'});
 if(!response.ok)throw Error('HTTP '+response.status);
-var raw=await response.text();
-if(!raw.trim())throw Error('empty API response');
-var value;try{value=JSON.parse(raw)}catch(_){throw Error('invalid JSON response')}
-if(!value||(!Array.isArray(value.ac)&&!Array.isArray(value.aircraft)))throw Error('response contains no aircraft list');
-return Array.isArray(value.ac)?value.ac:value.aircraft
-}finally{clearTimeout(alarm)}
-}
-async function getLiveAircraft(){
-var faults=[];
-if(configuredRelay){
-try{return {list:await feedRequest(configuredRelay,11000),provider:'private relay'}}catch(e){faults.push('private relay: '+e.message)}
-}
-for(var i=0;i<LIVE_FEEDS.length;i++){
-var p=LIVE_FEEDS[i];
-try{return {list:await feedRequest('https://proxy.cors.dev/'+p.url,11500),provider:p.name}}
-catch(e){faults.push(p.name+': '+e.message)}
-}
-throw Error(faults.join(' · ').slice(0,390))
+var data=await response.json();
+if(!data||!Array.isArray(data.ac))throw Error('No aircraft list');
+if(data.status!=='ok'||!data.updated)throw Error(data.error||'Feeder not ready');
+var when=Date.parse(data.updated),age=(Date.now()-when)/1000;
+if(!Number.isFinite(when)||age< -120||age>900)throw Error('Aircraft positions are stale');
+return {list:data.ac,updated:when,age:age,source:data.source||'ADS-B'}
+}finally{clearTimeout(timer)}
 }
 async function loadPlanes(){
 if(sim||fetching)return;
-fetching=true;status('planeStatus','CHECKING FEEDS');
+fetching=true;status('planeStatus','CHECKING YOUR PC');
 try{
-var data=await getLiveAircraft();
+var data,kind,issues=[];
+try{data=await getJsonFeed(LOCAL_URL,4500);kind='local'}
+catch(e){issues.push('Local feeder: '+e.message);status('planeStatus','CHECKING GITHUB');try{data=await getJsonFeed(SNAPSHOT_URL+'?t='+Math.floor(Date.now()/60000),9000);kind='snapshot'}catch(err){issues.push('GitHub snapshot: '+err.message)}}
+if(!data)throw Error(issues.join(' · '));
 aircraft=data.list.map(parsePlane).filter(Boolean).filter(function(p){return p.nm<=86});
-lastUpdate=Date.now();status('planeStatus',aircraft.length+' TRACKS · '+data.provider);
-pill('LIVE · '+data.provider,'good');tell('');refreshPlaneGraphics()
+lastUpdate=data.updated;
+status('planeStatus',aircraft.length+' TRACKS · '+(kind==='local'?'YOUR PC':'GITHUB SNAPSHOT'));
+pill(kind==='local'?'LIVE · YOUR PC':'SNAPSHOT · '+Math.floor(data.age/60)+' MIN OLD',kind==='local'?'good':'warn');
+tell(kind==='snapshot'?'Showing delayed GitHub snapshot, not live streaming. Start Python on this PC for faster updates.':'');
+refreshPlaneGraphics()
 }catch(e){
 status('planeStatus','OFFLINE');pill('FEED OFFLINE','bad');
-tell('Aircraft tracking unavailable. '+e.message+'. This is an upstream feed/relay problem, not a problem with the FAA map.');
-if(!lastUpdate){aircraft=[];refreshPlaneGraphics()}
+tell('No usable aircraft data. Start START_SKYSPACE_FEED.bat on this PC. '+e.message);
+aircraft=[];lastUpdate=0;refreshPlaneGraphics()
 }finally{fetching=false}
 }
 function simulate(){demoTick+=1;var codes=['FDX1045','FDX781','DAL1924','SWA2930','N584TW','AAL2250','FDX215','UAL921','FDX644','N62QM','FFT770','FDX1422'];aircraft=codes.map(function(c,i){var ang=(i*31+demoTick*2)*Math.PI/180,nm=9+i*5,lat=HOME.lat+Math.cos(ang)*nm/60,lon=HOME.lon+Math.sin(ang)*nm/(60*Math.cos(HOME.lat*Math.PI/180));return parsePlane({hex:'sim'+i,flight:c,t:i%3?'B763':'A320',lat:lat,lon:lon,alt_baro:1800+i*2900,gs:130+i*21,track:(i*31+90)%360,squawk:'1200',baro_rate:i%2?-700:500})});lastUpdate=Date.now();pill('SIMULATION · NOT LIVE','warn');status('planeStatus','SIMULATED');refreshPlaneGraphics()}
 function camera(top){viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(HOME.lon,HOME.lat,top?145000:115000),orientation:{heading:Cesium.Math.toRadians(top?0:-18),pitch:Cesium.Math.toRadians(top?-90:-55),roll:0},duration:1})}
 function initialize(){if(typeof Cesium==='undefined'){el('loading').textContent='3D MAP LIBRARY UNAVAILABLE — check internet connection';return}Cesium.Ion.defaultAccessToken='';try{viewer=new Cesium.Viewer('globe',{baseLayer:new Cesium.ImageryLayer(new Cesium.OpenStreetMapImageryProvider({url:'https://tile.openstreetmap.org/'})),terrainProvider:new Cesium.EllipsoidTerrainProvider(),baseLayerPicker:false,geocoder:false,homeButton:false,sceneModePicker:false,animation:false,timeline:false,infoBox:false,selectionIndicator:false,fullscreenButton:false,navigationHelpButton:false});viewer.scene.globe.enableLighting=false;viewer.scene.backgroundColor=cesiumColor('#071622');viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(HOME.lon,HOME.lat,140),point:{pixelSize:8,color:Cesium.Color.WHITE,outlineColor:cesiumColor('#65e2ee'),outlineWidth:3},label:{text:'KMEM · MEMPHIS INTERNATIONAL',font:'bold 12px monospace',pixelOffset:new Cesium.Cartesian2(0,-20),fillColor:Cesium.Color.WHITE,outlineColor:Cesium.Color.BLACK,outlineWidth:4,style:Cesium.LabelStyle.FILL_AND_OUTLINE}});var click=new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);click.setInputAction(function(e){var hit=viewer.scene.pick(e.position),id=hit&&hit.id;if(id&&id.hex)select(id.hex,false);else if(id&&id.shelf){var s=id.shelf;tell('FAA CLASS '+s.cls+' · '+s.name+' · '+s.floorText+' to '+comma(s.ceiling)+' FT MSL')}} ,Cesium.ScreenSpaceEventType.LEFT_CLICK);viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(HOME.lon,HOME.lat,115000),orientation:{heading:Cesium.Math.toRadians(-18),pitch:Cesium.Math.toRadians(-55),roll:0}});el('loading').style.display='none'}catch(e){el('loading').textContent='Map initialization failed: '+e.message}
 ['b','c','d','volumes','labels'].forEach(function(id){el(id).addEventListener('change',paintAirspace)});['callsigns','trails'].forEach(function(id){el(id).addEventListener('change',refreshPlaneGraphics)});el('altitude').oninput=function(){status('altText',comma(el('altitude').value)+' FT');refreshPlaneGraphics()};el('search').oninput=renderList;el('sort').onchange=renderList;el('view3d').onclick=function(){camera(false)};el('viewtop').onclick=function(){camera(true)};el('reset').onclick=function(){selected=null;camera(false);refreshPlaneGraphics()};el('refresh').onclick=function(){loadAirspace();loadPlanes()};el('demo').onclick=function(){sim=!sim;trails.clear();planeEntities.forEach(function(e){viewer.entities.remove(e)});planeEntities.clear();trailEntities.forEach(function(e){viewer.entities.remove(e)});trailEntities.clear();lastUpdate=0;selected=null;el('demo').textContent=sim?'RETURN TO LIVE ADS-B':'TRY SIMULATED FLIGHTS';if(sim){simulate();tell('These aircraft are fictional. Simulation mode is NOT LIVE.')}else{aircraft=[];refreshPlaneGraphics();pill('CONNECTING','warn');loadPlanes()}};
-loadAirspace();loadPlanes();setInterval(function(){if(sim)simulate();else loadPlanes()},30000);setInterval(function(){if(lastUpdate){var age=Math.max(0,Math.floor((Date.now()-lastUpdate)/1000));status('age',(sim?'SIMULATED · ':'ADS-B · ')+age+'S OLD');status('lastUpdated',(sim?'Simulation tick':'Last aircraft feed request succeeded')+' at '+new Date(lastUpdate).toLocaleTimeString())}},1000)}
+loadAirspace();loadPlanes();setInterval(function(){if(sim)simulate();else loadPlanes()},30000);setInterval(function(){if(lastUpdate){var age=Math.max(0,Math.floor((Date.now()-lastUpdate)/1000));status('age',(sim?'SIMULATED · ':'ADS-B · ')+age+'S OLD');status('lastUpdated',(sim?'Simulation tick':'Last valid aircraft feed timestamp')+' at '+new Date(lastUpdate).toLocaleTimeString())}},1000)}
 window.addEventListener('DOMContentLoaded',initialize);
 })();
 </script>
