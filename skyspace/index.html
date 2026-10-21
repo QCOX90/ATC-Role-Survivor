@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#071521">
-<title>SKYSPACE / MEM — Live 3D Airspace Explorer</title>
-<meta name="build" content="skyspace-v1.3-python-feeder">
+<title>SKYSPACE — U.S. 3D Airspace Explorer</title>
+<meta name="build" content="skyspace-v2-nationwide-faa">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.131.0/Build/Cesium/Widgets/widgets.css">
 <style>
 :root{color-scheme:dark;--bg:#061421;--panel:#0a1e2d;--edge:#274458;--muted:#90aab7;--txt:#e6f6fb;--cyan:#6ee4f1;--blue:#368ee9;--purple:#ad8afb;--amber:#f9bb61}
@@ -34,12 +34,42 @@ header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-be
 <script defer src="https://cdn.jsdelivr.net/npm/cesium@1.131.0/Build/Cesium/Cesium.js"></script>
 </head><body>
 <div class="app">
-<header><div class="brand">SKY<b>SPACE</b><small>KMEM · MEMPHIS / 3D AIRSPACE</small></div><div class="bar"><span id="livePill" class="pill warn">● CONNECTING</span><span class="pill">FAA AIRSPACE + ADS-B</span></div></header>
+<header><div class="brand">SKY<b>SPACE</b><small>U.S. AIRSPACE / FAA GIS</small></div><div class="bar"><span id="livePill" class="pill warn">● CONNECTING</span><span class="pill">FAA AIRSPACE + ADS-B</span></div></header>
 <aside class="panel left">
 <div class="section"><div class="kicker">AIRSPACE CLASSES</div><div class="stack">
 <label class="toggle"><span><i class="dot" style="background:#368ee9"></i>Class B</span><input type="checkbox" id="b" checked></label>
 <label class="toggle"><span><i class="dot" style="background:#ad8afb"></i>Class C</span><input type="checkbox" id="c" checked></label>
-<label class="toggle"><span><i class="dot" style="background:#f9bb61"></i>Class D</span><input type="checkbox" id="d" checked></label></div></div>
+<label class="toggle"><span><i class="dot" style="background:#f9bb61"></i>Class D</span><input type="checkbox" id="d" checked></label>
+<label class="toggle"><span><i class="dot" style="background:#51c99d"></i>Class E (large areas)</span><input type="checkbox" id="e"></label>
+<label class="toggle"><span><i class="dot" style="background:#ff86a5"></i>ARTCC boundaries</span><input type="checkbox" id="artcc"></label>
+<label class="toggle"><span><i class="dot" style="background:#e58175"></i>Special-use areas</span><input type="checkbox" id="special"></label>
+</div><p class="help">ARTCC outlines are charted geographic boundaries, not a representation of all altitude-dependent sectors. Class G is not a standalone FAA polygon layer.</p></div>
+<div class="section"><div class="kicker">EXPLORE U.S. AIRSPACE</div>
+<select id="jumpAirport" class="field">
+<option value="KMEM">KMEM — Memphis</option>
+<option value="KATL">KATL — Atlanta</option>
+<option value="KJFK">KJFK — New York JFK</option>
+<option value="KLAX">KLAX — Los Angeles</option>
+<option value="KORD">KORD — Chicago O'Hare</option>
+<option value="KDFW">KDFW — Dallas / Fort Worth</option>
+<option value="KDEN">KDEN — Denver</option>
+<option value="KSFO">KSFO — San Francisco</option>
+<option value="KSEA">KSEA — Seattle</option>
+<option value="KMIA">KMIA — Miami</option>
+<option value="KCLT">KCLT — Charlotte</option>
+<option value="KBOS">KBOS — Boston</option>
+<option value="KPHX">KPHX — Phoenix</option>
+<option value="KBNA">KBNA — Nashville</option>
+<option value="KSTL">KSTL — St. Louis</option>
+<option value="KLIT">KLIT — Little Rock</option>
+<option value="KSLC">KSLC — Salt Lake City</option>
+<option value="KMSP">KMSP — Minneapolis</option>
+<option value="KIAD">KIAD — Dulles / Washington</option>
+<option value="KPDX">KPDX — Portland</option>
+</select><p class="help">Or jump to any U.S. latitude / longitude:</p>
+<div class="duo"><input id="latInput" class="field" type="number" step="any" placeholder="Latitude"><input id="lonInput" class="field" type="number" step="any" placeholder="Longitude"></div>
+<div style="height:8px"></div><button class="btn full" id="goCoords">GO TO LOCATION</button>
+<div style="height:8px"></div><p class="help" id="regionStatus">Loading Memphis…</p></div>
 <div class="section"><div class="kicker">DISPLAY</div><div class="stack">
 <label class="toggle">3D airspace volumes<input type="checkbox" id="volumes" checked></label>
 <label class="toggle">Shelf altitude labels<input type="checkbox" id="labels" checked></label>
@@ -48,22 +78,26 @@ header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-be
 <div class="line"></div><div class="row"><span class="subtitle">MAX DISPLAY ALTITUDE</span><b id="altText" style="font-size:12px">45,000 FT</b></div>
 <input class="range" type="range" id="altitude" min="2000" max="45000" step="1000" value="45000"></div>
 <div class="section"><div class="kicker">DATA SOURCES</div><div class="row subtitle"><span>FAA airspace</span><b id="faaStatus">LOADING</b></div><div style="height:9px"></div><div class="row subtitle"><span>Aircraft ADS-B</span><b id="planeStatus">LOADING</b></div><p class="help">Run START_SKYSPACE_FEED.bat on this Windows PC for live ADS-B. If local data is unavailable, the page tries a delayed snapshot from the skyspace-live GitHub branch. Snapshots are labeled and never described as live.</p><button class="btn full" id="refresh">↻ REFRESH NOW</button><div style="height:8px"></div><button class="btn full soft" id="demo">TRY SIMULATED FLIGHTS</button></div>
-<div class="section"><div class="kicker">LIMITATIONS</div><div class="help">Educational visualization only. Not for navigation, ATC separation or operational decision-making. Airspace limits are approximated on an ellipsoid; some SFC/AGL interpretations require terrain data. ADS-B can be delayed or incomplete.</div></div>
+<div class="section"><div class="kicker">LIMITATIONS</div><div class="help">Nationwide FAA chart layers load around the current viewport; zoom or move the map to load other regions. ARTCC boundaries are not altitude-specific sectors. Special-use activation may depend on NOTAMs and scheduled times. Aircraft tracking remains centered on Memphis until the Python feeder is updated. Educational visualization only. Not for navigation, ATC separation or operational decision-making. Airspace limits are approximated on an ellipsoid; some SFC/AGL interpretations require terrain data. ADS-B can be delayed or incomplete.</div></div>
 </aside>
 <main class="map" id="map"><div id="globe"></div><div id="loading" class="loading"><strong>LOADING 3D AIRSPACE EXPLORER</strong><span>Initializing Cesium globe…</span></div>
-<div class="overlays"><div class="stamp">KMEM / 35.0424°N 89.9767°W</div><div class="stamp" id="airCount">AIRSPACE —</div><div class="stamp" id="age">WAITING FOR DATA</div></div>
+<div class="overlays"><div class="stamp">KMEM / 35.0424°N 89.9767°W</div><div class="stamp" id="airCount">AIRSPACE —</div><div class="stamp" id="extraCount">ARTCC / SUA —</div><div class="stamp" id="age">WAITING FOR DATA</div></div>
 <div class="toast" id="toast"></div>
 <div class="mapnav"><button class="btn" id="view3d">◈ 3D VIEW</button><button class="btn" id="viewtop">▦ TOP VIEW</button><button class="btn" id="reset">◎ RESET</button></div>
 <div class="credit">© OpenStreetMap contributors · CesiumJS · FAA AIS · <a href="https://adsb.fi" target="_blank" rel="noopener">adsb.fi</a> · ADSB One · Airplanes.live · ADSB.lol (ODbL)</div></main>
 <aside class="panel right">
-<div class="section"><div class="kicker">MEMPHIS AIR TRAFFIC</div><div class="stats"><div class="stat"><strong id="total">—</strong><span>TRACKED</span></div><div class="stat"><strong id="low">—</strong><span>BELOW 10,000 FT</span></div></div><p class="subtitle" id="lastUpdated">Waiting for live aircraft…</p></div>
+<div class="section"><div class="kicker">AIRCRAFT — KMEM FEED ONLY</div><div class="stats"><div class="stat"><strong id="total">—</strong><span>TRACKED</span></div><div class="stat"><strong id="low">—</strong><span>BELOW 10,000 FT</span></div></div><p class="subtitle" id="lastUpdated">Waiting for live aircraft…</p></div>
 <div class="section"><div class="kicker">AIRCRAFT LIST</div><input id="search" class="field" type="search" placeholder="Search callsign or aircraft…"><div style="height:9px"></div><select id="sort" class="field"><option value="near">Closest to KMEM</option><option value="alt">Lowest altitude</option><option value="name">Callsign A–Z</option></select><div style="height:11px"></div><div id="flights" class="flightlist"><div class="subtitle">Fetching aircraft…</div></div></div>
 <div class="section"><div class="kicker">AIRCRAFT INSPECTOR</div><div id="details" class="details"><p class="help">Select an aircraft on the globe or in the list to view speed, altitude, heading and its approximate airspace class.</p></div></div>
 </aside></div>
 <script>
 (function(){
 'use strict';
-var HOME={lat:35.0424,lon:-89.9767},COLOR={B:'#368ee9',C:'#ad8afb',D:'#f9bb61'},FT=0.3048,viewer=null,airspace=[],aircraft=[],planeEntities=new Map(),airEntities=[],trails=new Map(),trailEntities=new Map(),selected=null,sim=false,demoTick=0,lastUpdate=0,fetching=false;
+var HOME={lat:35.0424,lon:-89.9767},COLOR={B:'#368ee9',C:'#ad8afb',D:'#f9bb61',E:'#51c99d'},FT=0.3048,viewer=null,airspace=[],aircraft=[],planeEntities=new Map(),airEntities=[],trails=new Map(),trailEntities=new Map(),boundaryEntities=[],artcc=[],specialUse=[],selected=null,sim=false,demoTick=0,lastUpdate=0,fetching=false,airRequest=0,boundaryRequest=0,loadTimer=null,viewKey='',focusName='KMEM';
+var AIRPORTS={KMEM:[35.0424,-89.9767],KATL:[33.6407,-84.4277],KJFK:[40.6413,-73.7781],KLAX:[33.9416,-118.4085],KORD:[41.9742,-87.9073],KDFW:[32.8998,-97.0403],KDEN:[39.8561,-104.6737],KSFO:[37.6213,-122.379],KSEA:[47.4502,-122.3088],KMIA:[25.7954,-80.2906],KCLT:[35.214,-80.9431],KBOS:[42.3656,-71.0096],KPHX:[33.4352,-112.0101],KBNA:[36.1263,-86.6774],KSTL:[38.7487,-90.37],KLIT:[34.7294,-92.2243],KSLC:[40.7899,-111.9791],KMSP:[44.8848,-93.2223],KIAD:[38.9531,-77.4565],KPDX:[45.5898,-122.5951]};
+var CLASS_SOURCE='https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/Class_Airspace/FeatureServer/0/query?';
+var ARTCC_SOURCE='https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/Boundary_Airspace/FeatureServer/0/query?';
+var SUA_SOURCE='https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/Special_Use_Airspace/FeatureServer/0/query?';
 function el(id){return document.getElementById(id)}
 function safe(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function comma(x){return Math.round(Number(x)||0).toLocaleString('en-US')}
@@ -82,10 +116,188 @@ function inShape(p,g){return ringsFor(g).some(function(rs){return rs[0]&&insideR
 function match(p){return airspace.filter(function(s){return p.alt>=s.floor&&p.alt<=s.ceiling&&inShape(p,s.geo)})}
 function cesiumColor(c,a){return Cesium.Color.fromCssColorString(c).withAlpha(a==null?1:a)}
 function ringPoints(r){var a=r.map(function(q){return Cesium.Cartesian3.fromDegrees(q[0],q[1])});if(a.length>1&&r[0][0]===r[r.length-1][0]&&r[0][1]===r[r.length-1][1])a.pop();return a}
-function paintAirspace(){if(!viewer)return;airEntities.forEach(function(o){viewer.entities.remove(o)});airEntities=[];var n=0,flat=!el('volumes').checked;airspace.forEach(function(s){if(!el(s.cls.toLowerCase()).checked)return;ringsFor(s.geo).forEach(function(rs){if(!rs.length)return;var pts=ringPoints(rs[0]);if(pts.length<3)return;var holes=rs.slice(1).map(function(r){return new Cesium.PolygonHierarchy(ringPoints(r))});var c=cesiumColor(COLOR[s.cls]);var top=flat?1:s.ceiling*FT,bot=flat?1:s.floor*FT;var o=viewer.entities.add({name:s.name+' Class '+s.cls,polygon:{hierarchy:new Cesium.PolygonHierarchy(pts,holes),height:top,extrudedHeight:flat?undefined:bot,material:c.withAlpha(flat?.15:.22),outline:false}});o.shelf=s;airEntities.push(o);
-var line=viewer.entities.add({polyline:{positions:rs[0].map(function(p){return Cesium.Cartesian3.fromDegrees(p[0],p[1],top+3)}),width:1.8,material:c.withAlpha(.85)}});line.shelf=s;airEntities.push(line);
-if(el('labels').checked&&n++<65){var points=rs[0],lat=0,lon=0;points.forEach(function(q){lon+=q[0];lat+=q[1]});lat/=points.length;lon/=points.length;airEntities.push(viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(lon,lat,top+120),label:{text:'CLASS '+s.cls+' '+s.floorText+'–'+comma(s.ceiling),font:'11px monospace',style:Cesium.LabelStyle.FILL_AND_OUTLINE,fillColor:c,outlineColor:Cesium.Color.BLACK,outlineWidth:3,showBackground:true,backgroundColor:cesiumColor('#071f2c',.75),distanceDisplayCondition:new Cesium.DistanceDisplayCondition(0,300000)}}))}})});status('airCount',airspace.length+' FAA AIRSPACE VOLUMES')}
-async function loadAirspace(){status('faaStatus','LOADING');var params=new URLSearchParams({where:"CLASS IN ('B','C','D')",geometry:'-90.85,34.45,-89.15,35.66',geometryType:'esriGeometryEnvelope',inSR:'4326',spatialRel:'esriSpatialRelIntersects',outFields:'OBJECTID,NAME,IDENT,CLASS,LOWER_VAL,UPPER_VAL,LOWER_CODE,UPPER_CODE,LOWER_UOM,UPPER_UOM,LOWER_DESC,UPPER_DESC',outSR:'4326',returnGeometry:'true',f:'geojson'});try{var d=await source('https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/Class_Airspace/FeatureServer/0/query?'+params.toString());if(!Array.isArray(d.features))throw Error('No GeoJSON features returned');airspace=d.features.map(function(f,i){var p=f.properties||{},cls=String(p.CLASS||'').toUpperCase(),floor=limit(p,'LOWER'),ceiling=limit(p,'UPPER');if(!COLOR[cls]||ceiling===null||ceiling<=0)return null;return{id:p.OBJECTID||i,name:p.NAME||p.IDENT||'Airspace',cls:cls,floor:floor||0,ceiling:ceiling,floorText:/SFC|SURFACE|GROUND/i.test(String(p.LOWER_CODE||'')+' '+String(p.LOWER_DESC||''))?'SFC':comma(floor||0),geo:f.geometry}}).filter(Boolean);if(!airspace.length)throw Error('No Class B/C/D geometry found');paintAirspace();status('faaStatus',airspace.length+' SECTIONS');tell('')}catch(e){status('faaStatus','OFFLINE');tell('FAA airspace source unavailable: '+e.message+'. Flight tracking can still work.')}}
+
+function paintAirspace(){
+ if(!viewer)return;
+ airEntities.forEach(function(e){viewer.entities.remove(e)});
+ airEntities=[];
+ var n=0,drawn=0,flat=!el('volumes').checked;
+ airspace.forEach(function(s){
+  if(!el(s.cls.toLowerCase()).checked||drawn>=500)return;
+  ringsFor(s.geo).forEach(function(rs){
+   if(!rs.length||drawn>=500)return;
+   var pts=ringPoints(rs[0]);if(pts.length<3)return;
+   var holes=rs.slice(1).map(function(r){return new Cesium.PolygonHierarchy(ringPoints(r))});
+   var c=cesiumColor(COLOR[s.cls]),top=flat?2:Math.min(45000,s.ceiling)*FT,bot=flat?2:s.floor*FT;
+   if(top<bot)top=bot+5;
+   var ent=viewer.entities.add({name:s.name+' Class '+s.cls,
+    polygon:{hierarchy:new Cesium.PolygonHierarchy(pts,holes),height:top,
+     extrudedHeight:flat?undefined:bot,material:c.withAlpha(s.cls==='E'?.09:(flat?.14:.22)),outline:false}});
+   ent.shelf=s;airEntities.push(ent);
+   var line=viewer.entities.add({polyline:{positions:rs[0].map(function(p){return Cesium.Cartesian3.fromDegrees(p[0],p[1],top+3)}),width:1.7,material:c.withAlpha(.84)}});
+   line.shelf=s;airEntities.push(line);drawn++;
+   if(el('labels').checked&&n++<65){
+    var pts2=rs[0],lat=0,lon=0;pts2.forEach(function(q){lon+=q[0];lat+=q[1]});
+    lat/=pts2.length;lon/=pts2.length;
+    airEntities.push(viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(lon,lat,top+100),
+     label:{text:'CLASS '+s.cls+' '+s.floorText+'–'+comma(s.ceiling),
+      font:'11px monospace',style:Cesium.LabelStyle.FILL_AND_OUTLINE,fillColor:c,outlineColor:Cesium.Color.BLACK,outlineWidth:3,
+      showBackground:true,backgroundColor:cesiumColor('#071f2c',.75),
+      distanceDisplayCondition:new Cesium.DistanceDisplayCondition(0,260000)}}))
+   }
+  })
+ });
+ status('airCount',airspace.length+' FAA CLASS VOLUMES');
+}
+function selectedClasses(){
+ return ['b','c','d','e'].filter(function(id){return el(id).checked}).map(function(id){return id.toUpperCase()})
+}
+function viewBounds(){
+ var rect=viewer.camera.computeViewRectangle(viewer.scene.globe.ellipsoid);
+ var cart=viewer.camera.positionCartographic;
+ var lat=Cesium.Math.toDegrees(cart.latitude),lon=Cesium.Math.toDegrees(cart.longitude);
+ if(!Number.isFinite(lat)||Math.abs(lat)>83)lat=HOME.lat;
+ if(!Number.isFinite(lon))lon=HOME.lon;
+ // Camera projection may be far from the point of view: prefer pick on screen center.
+ var ray=viewer.camera.getPickRay(new Cesium.Cartesian2(viewer.canvas.clientWidth/2,viewer.canvas.clientHeight/2));
+ var picked=ray&&viewer.scene.globe.pick(ray,viewer.scene);
+ if(picked){var center=Cesium.Cartographic.fromCartesian(picked);lat=Cesium.Math.toDegrees(center.latitude);lon=Cesium.Math.toDegrees(center.longitude)}
+ var halfLon=1.7,halfLat=1.3;
+ if(rect&&rect.east>=rect.west){
+  halfLon=Math.min(5,Math.max(.75,(Cesium.Math.toDegrees(rect.east-rect.west)*.62)));
+  halfLat=Math.min(3.5,Math.max(.65,(Cesium.Math.toDegrees(rect.north-rect.south)*.62)))
+ }
+ lon=Math.max(-177,Math.min(177,lon));
+ lat=Math.max(-78,Math.min(78,lat));
+ return {lat:lat,lon:lon,bbox:[lon-halfLon,lat-halfLat,lon+halfLon,lat+halfLat]};
+}
+function queryArgs(bbox,where,fields){
+ return new URLSearchParams({where:where,geometry:bbox.map(function(x){return x.toFixed(5)}).join(','),
+ geometryType:'esriGeometryEnvelope',inSR:'4326',spatialRel:'esriSpatialRelIntersects',
+ outFields:fields,outSR:'4326',returnGeometry:'true',geometryPrecision:'5',maxAllowableOffset:'0.0008',
+ resultRecordCount:'1500',f:'geojson'}).toString()
+}
+async function faaGeo(sourceUrl,bbox,where,fields){
+ var d=await source(sourceUrl+queryArgs(bbox,where,fields));
+ if(!d||!Array.isArray(d.features))throw Error('FAA data source returned no GeoJSON feature collection');
+ return d
+}
+async function loadAirspace(){
+ if(!viewer)return;
+ var request=++airRequest, selected=selectedClasses(),bounds=viewBounds();
+ var key=bounds.bbox.map(function(n){return n.toFixed(2)}).join(',')+'|'+selected.join(',');
+ if(key===viewKey)return;
+ viewKey=key;status('faaStatus','LOADING');
+ el('regionStatus').textContent='FAA data near '+bounds.lat.toFixed(2)+'°, '+bounds.lon.toFixed(2)+'°';
+ if(!selected.length){airspace=[];paintAirspace();status('faaStatus','NO CLASSES SELECTED');loadExtra(bounds);return}
+ try{
+  var where="CLASS IN ("+selected.map(function(c){return "'"+c+"'"}).join(',')+")";
+  var d=await faaGeo(CLASS_SOURCE,bounds.bbox,where,'OBJECTID,NAME,IDENT,CLASS,LOWER_VAL,UPPER_VAL,LOWER_CODE,UPPER_CODE,LOWER_UOM,UPPER_UOM,LOWER_DESC,UPPER_DESC');
+  if(request!==airRequest)return;
+  var parsed=d.features.map(function(f,i){
+   var p=f.properties||{},cls=String(p.CLASS||'').toUpperCase(),floor=limit(p,'LOWER'),ceiling=limit(p,'UPPER');
+   if(!COLOR[cls]||ceiling===null||ceiling<=0)return null;
+   var surf=/SFC|SURFACE|GROUND/i.test(String(p.LOWER_CODE||'')+' '+String(p.LOWER_DESC||''));
+   return{id:p.OBJECTID||i,name:p.NAME||p.IDENT||'Airspace',cls:cls,
+    floor:Math.max(0,floor||0),ceiling:ceiling,floorText:surf?'SFC':comma(floor||0),geo:f.geometry}
+  }).filter(function(s){return s&&ringsFor(s.geo).length});
+  airspace=parsed;paintAirspace();
+  status('faaStatus',parsed.length+' SECTIONS'+(d.exceededTransferLimit?' · PARTIAL':''));
+  if(d.exceededTransferLimit)tell('Airspace query exceeded FAA result limit. Zoom in for complete nearby coverage.');
+  else if(!parsed.length)tell('No selected controlled-airspace shapes were published for this area. Try enabling Class E.');
+  else tell('');
+ }catch(e){
+  if(request!==airRequest)return;
+  viewKey='';
+  status('faaStatus','FAA UNAVAILABLE');
+  tell('FAA class-airspace data unavailable for this view: '+e.message)
+ }
+ loadExtra(bounds);
+}
+function removeBoundaryEntities(){
+ boundaryEntities.forEach(function(e){viewer.entities.remove(e)});
+ boundaryEntities=[]
+}
+function paintExtra(){
+ if(!viewer)return;
+ removeBoundaryEntities();
+ var count=0;
+ if(el('artcc').checked)artcc.forEach(function(s){
+  ringsFor(s.geo).forEach(function(rs){
+   if(!rs[0]||rs[0].length<3||count>=220)return;
+   var positions=rs[0].map(function(p){return Cesium.Cartesian3.fromDegrees(p[0],p[1],175)});
+   var e=viewer.entities.add({name:s.name,polyline:{positions:positions,width:2.5,material:cesiumColor('#ff86a5',.95)}});
+   e.boundaryInfo=s;boundaryEntities.push(e);count++
+  })
+ });
+ if(el('special').checked)specialUse.forEach(function(s){
+  ringsFor(s.geo).forEach(function(rs){
+   if(!rs[0]||rs[0].length<3||count>=350)return;
+   var pts=ringPoints(rs[0]);if(pts.length<3)return;
+   var top=Number.isFinite(s.ceiling)?Math.min(45000,s.ceiling)*FT:500;
+   var base=Number.isFinite(s.floor)?Math.min(s.floor*FT,top-4):10;
+   var e=viewer.entities.add({name:s.name,polygon:{hierarchy:new Cesium.PolygonHierarchy(pts),height:top,
+    extrudedHeight:base,material:cesiumColor('#e58175',.17),outline:false}});
+   e.specialInfo=s;boundaryEntities.push(e);
+   var ln=viewer.entities.add({polyline:{positions:rs[0].map(function(p){return Cesium.Cartesian3.fromDegrees(p[0],p[1],top+4)}),width:2,material:cesiumColor('#ef9b82',.85)}});
+   ln.specialInfo=s;boundaryEntities.push(ln);count++
+  })
+ });
+ status('extraCount',(el('artcc').checked?artcc.length:0)+' ARTCC · '+(el('special').checked?specialUse.length:0)+' SUA');
+}
+async function loadExtra(bounds){
+ if(!viewer)return;
+ var request=++boundaryRequest;
+ if(!bounds)bounds=viewBounds();
+ var jobs=[];
+ if(el('artcc').checked){
+  jobs.push(faaGeo(ARTCC_SOURCE,bounds.bbox,"TYPE_CODE = 'ARTCC'",
+   'OBJECTID,IDENT,NAME,TYPE_CODE,SECTOR,LEVEL_,UPPER_VAL,LOWER_VAL').then(function(d){
+   return{type:'artcc',features:d.features,partial:!!d.exceededTransferLimit}
+  }))
+ }else{artcc=[]}
+ if(el('special').checked){
+  jobs.push(faaGeo(SUA_SOURCE,bounds.bbox,'1=1',
+   'OBJECTID,NAME,TYPE_CODE,CLASS,LOWER_VAL,UPPER_VAL,LOWER_CODE,UPPER_CODE,LOWER_UOM,UPPER_UOM,TIMESOFUSE').then(function(d){
+   return{type:'special',features:d.features,partial:!!d.exceededTransferLimit}
+  }))
+ }else{specialUse=[]}
+ paintExtra();
+ if(!jobs.length)return;
+ status('extraCount','LOADING FAA BOUNDARIES…');
+ var results=await Promise.allSettled(jobs);
+ if(request!==boundaryRequest)return;
+ var errors=[];
+ results.forEach(function(r){
+  if(r.status!=='fulfilled'){errors.push(String(r.reason));return}
+  var x=r.value;
+  var parsed=x.features.map(function(f,i){
+   var p=f.properties||{};
+   return {id:p.OBJECTID||i,name:p.NAME||p.IDENT||'Unnamed',
+    ident:p.IDENT||'',sector:p.SECTOR||'',level:p.LEVEL_||'',
+    kind:p.TYPE_CODE||p.CLASS||'',floor:limit(p,'LOWER'),ceiling:limit(p,'UPPER'),
+    times:p.TIMESOFUSE||'',geo:f.geometry}
+  }).filter(function(a){return ringsFor(a.geo).length});
+  if(x.type==='artcc')artcc=parsed;else specialUse=parsed;
+  if(x.partial)errors.push(x.type+' results truncated; zoom in')
+ });
+ paintExtra();
+ if(errors.length)tell('Additional FAA boundaries: '+errors.join(' · ').slice(0,250))
+}
+function queueAirspaceReload(){
+ clearTimeout(loadTimer);
+ loadTimer=setTimeout(function(){loadAirspace()},680)
+}
+function jumpTo(lat,lon,name){
+ if(!viewer)return;
+ if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>85||Math.abs(lon)>180){tell('Enter a valid latitude and longitude.');return}
+ focusName=name||'COORDINATES';
+ el('latInput').value=lat.toFixed(4);el('lonInput').value=lon.toFixed(4);
+ status('regionStatus','Moving to '+focusName+'…');
+ viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(lon,lat,115000),
+  orientation:{heading:Cesium.Math.toRadians(-18),pitch:Cesium.Math.toRadians(-55),roll:0},duration:1.4,complete:queueAirspaceReload});
+}
+
 function parsePlane(a){var lat=number(a.lat),lon=number(a.lon);if(lat===null||lon===null||!a.hex)return null;return{hex:String(a.hex).toLowerCase(),lat:lat,lon:lon,alt:altitude(a),gs:number(a.gs),track:number(a.track)??number(a.true_heading)??0,flight:String(a.flight||'').trim()||String(a.hex).toUpperCase(),type:String(a.t||'Unknown'),reg:String(a.r||''),squawk:String(a.squawk||'—'),vertical:number(a.baro_rate),nm:dist(lat,lon)}}
 function icon(demo){var fill=demo?'#ffd180':'#81f4ee';return 'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path d="M24 3 L20 23 L6 30 L6 35 L21 32 L22 41 L17 44 L17 46 L24 44 L31 46 L31 44 L26 41 L27 32 L42 35 L42 30 L28 23 Z" fill="'+fill+'" stroke="#083347" stroke-width="1.5"/></svg>')}
 function pos(p){return Cesium.Cartesian3.fromDegrees(p.lon,p.lat,Math.max(p.alt,120)*FT)}
@@ -132,8 +344,8 @@ aircraft=[];lastUpdate=0;refreshPlaneGraphics()
 }
 function simulate(){demoTick+=1;var codes=['FDX1045','FDX781','DAL1924','SWA2930','N584TW','AAL2250','FDX215','UAL921','FDX644','N62QM','FFT770','FDX1422'];aircraft=codes.map(function(c,i){var ang=(i*31+demoTick*2)*Math.PI/180,nm=9+i*5,lat=HOME.lat+Math.cos(ang)*nm/60,lon=HOME.lon+Math.sin(ang)*nm/(60*Math.cos(HOME.lat*Math.PI/180));return parsePlane({hex:'sim'+i,flight:c,t:i%3?'B763':'A320',lat:lat,lon:lon,alt_baro:1800+i*2900,gs:130+i*21,track:(i*31+90)%360,squawk:'1200',baro_rate:i%2?-700:500})});lastUpdate=Date.now();pill('SIMULATION · NOT LIVE','warn');status('planeStatus','SIMULATED');refreshPlaneGraphics()}
 function camera(top){viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(HOME.lon,HOME.lat,top?145000:115000),orientation:{heading:Cesium.Math.toRadians(top?0:-18),pitch:Cesium.Math.toRadians(top?-90:-55),roll:0},duration:1})}
-function initialize(){if(typeof Cesium==='undefined'){el('loading').textContent='3D MAP LIBRARY UNAVAILABLE — check internet connection';return}Cesium.Ion.defaultAccessToken='';try{viewer=new Cesium.Viewer('globe',{baseLayer:new Cesium.ImageryLayer(new Cesium.OpenStreetMapImageryProvider({url:'https://tile.openstreetmap.org/'})),terrainProvider:new Cesium.EllipsoidTerrainProvider(),baseLayerPicker:false,geocoder:false,homeButton:false,sceneModePicker:false,animation:false,timeline:false,infoBox:false,selectionIndicator:false,fullscreenButton:false,navigationHelpButton:false});viewer.scene.globe.enableLighting=false;viewer.scene.backgroundColor=cesiumColor('#071622');viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(HOME.lon,HOME.lat,140),point:{pixelSize:8,color:Cesium.Color.WHITE,outlineColor:cesiumColor('#65e2ee'),outlineWidth:3},label:{text:'KMEM · MEMPHIS INTERNATIONAL',font:'bold 12px monospace',pixelOffset:new Cesium.Cartesian2(0,-20),fillColor:Cesium.Color.WHITE,outlineColor:Cesium.Color.BLACK,outlineWidth:4,style:Cesium.LabelStyle.FILL_AND_OUTLINE}});var click=new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);click.setInputAction(function(e){var hit=viewer.scene.pick(e.position),id=hit&&hit.id;if(id&&id.hex)select(id.hex,false);else if(id&&id.shelf){var s=id.shelf;tell('FAA CLASS '+s.cls+' · '+s.name+' · '+s.floorText+' to '+comma(s.ceiling)+' FT MSL')}} ,Cesium.ScreenSpaceEventType.LEFT_CLICK);viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(HOME.lon,HOME.lat,115000),orientation:{heading:Cesium.Math.toRadians(-18),pitch:Cesium.Math.toRadians(-55),roll:0}});el('loading').style.display='none'}catch(e){el('loading').textContent='Map initialization failed: '+e.message}
-['b','c','d','volumes','labels'].forEach(function(id){el(id).addEventListener('change',paintAirspace)});['callsigns','trails'].forEach(function(id){el(id).addEventListener('change',refreshPlaneGraphics)});el('altitude').oninput=function(){status('altText',comma(el('altitude').value)+' FT');refreshPlaneGraphics()};el('search').oninput=renderList;el('sort').onchange=renderList;el('view3d').onclick=function(){camera(false)};el('viewtop').onclick=function(){camera(true)};el('reset').onclick=function(){selected=null;camera(false);refreshPlaneGraphics()};el('refresh').onclick=function(){loadAirspace();loadPlanes()};el('demo').onclick=function(){sim=!sim;trails.clear();planeEntities.forEach(function(e){viewer.entities.remove(e)});planeEntities.clear();trailEntities.forEach(function(e){viewer.entities.remove(e)});trailEntities.clear();lastUpdate=0;selected=null;el('demo').textContent=sim?'RETURN TO LIVE ADS-B':'TRY SIMULATED FLIGHTS';if(sim){simulate();tell('These aircraft are fictional. Simulation mode is NOT LIVE.')}else{aircraft=[];refreshPlaneGraphics();pill('CONNECTING','warn');loadPlanes()}};
+function initialize(){if(typeof Cesium==='undefined'){el('loading').textContent='3D MAP LIBRARY UNAVAILABLE — check internet connection';return}Cesium.Ion.defaultAccessToken='';try{viewer=new Cesium.Viewer('globe',{baseLayer:new Cesium.ImageryLayer(new Cesium.OpenStreetMapImageryProvider({url:'https://tile.openstreetmap.org/'})),terrainProvider:new Cesium.EllipsoidTerrainProvider(),baseLayerPicker:false,geocoder:false,homeButton:false,sceneModePicker:false,animation:false,timeline:false,infoBox:false,selectionIndicator:false,fullscreenButton:false,navigationHelpButton:false});viewer.scene.globe.enableLighting=false;viewer.scene.backgroundColor=cesiumColor('#071622');viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(HOME.lon,HOME.lat,140),point:{pixelSize:8,color:Cesium.Color.WHITE,outlineColor:cesiumColor('#65e2ee'),outlineWidth:3},label:{text:'KMEM · MEMPHIS INTERNATIONAL',font:'bold 12px monospace',pixelOffset:new Cesium.Cartesian2(0,-20),fillColor:Cesium.Color.WHITE,outlineColor:Cesium.Color.BLACK,outlineWidth:4,style:Cesium.LabelStyle.FILL_AND_OUTLINE}});var click=new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);click.setInputAction(function(e){var hit=viewer.scene.pick(e.position),id=hit&&hit.id;if(id&&id.hex)select(id.hex,false);else if(id&&id.shelf){var s=id.shelf;tell('FAA CLASS '+s.cls+' · '+s.name+' · '+s.floorText+' to '+comma(s.ceiling)+' FT (consult chart for altitude reference)')}else if(id&&id.boundaryInfo){var b=id.boundaryInfo;tell('FAA ARTCC CHART BOUNDARY: '+b.name+' · '+(b.ident||'')+' · '+(b.sector||'')+' (not a complete vertical sector representation)')}else if(id&&id.specialInfo){var x=id.specialInfo;tell('SPECIAL-USE AREA: '+x.name+' · '+x.kind+' · times of use: '+(x.times||'consult current FAA charts / NOTAMs'))}} ,Cesium.ScreenSpaceEventType.LEFT_CLICK);viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(HOME.lon,HOME.lat,115000),orientation:{heading:Cesium.Math.toRadians(-18),pitch:Cesium.Math.toRadians(-55),roll:0}});el('loading').style.display='none'}catch(e){el('loading').textContent='Map initialization failed: '+e.message}
+['b','c','d','e'].forEach(function(id){el(id).addEventListener('change',function(){viewKey='';loadAirspace()})});['artcc','special'].forEach(function(id){el(id).addEventListener('change',function(){loadExtra(viewBounds())})});['volumes','labels'].forEach(function(id){el(id).addEventListener('change',paintAirspace)});['callsigns','trails'].forEach(function(id){el(id).addEventListener('change',refreshPlaneGraphics)});el('altitude').oninput=function(){status('altText',comma(el('altitude').value)+' FT');refreshPlaneGraphics()};el('search').oninput=renderList;el('sort').onchange=renderList;el('jumpAirport').onchange=function(){var k=el('jumpAirport').value,p=AIRPORTS[k];if(p)jumpTo(p[0],p[1],k)};el('goCoords').onclick=function(){jumpTo(Number(el('latInput').value),Number(el('lonInput').value),'COORDINATES')};el('latInput').value=HOME.lat;el('lonInput').value=HOME.lon;viewer.camera.moveEnd.addEventListener(queueAirspaceReload);el('view3d').onclick=function(){camera(false)};el('viewtop').onclick=function(){camera(true)};el('reset').onclick=function(){selected=null;el('jumpAirport').value='KMEM';jumpTo(HOME.lat,HOME.lon,'KMEM');refreshPlaneGraphics()};el('refresh').onclick=function(){viewKey='';loadAirspace();loadPlanes()};el('demo').onclick=function(){sim=!sim;trails.clear();planeEntities.forEach(function(e){viewer.entities.remove(e)});planeEntities.clear();trailEntities.forEach(function(e){viewer.entities.remove(e)});trailEntities.clear();lastUpdate=0;selected=null;el('demo').textContent=sim?'RETURN TO LIVE ADS-B':'TRY SIMULATED FLIGHTS';if(sim){simulate();tell('These aircraft are fictional. Simulation mode is NOT LIVE.')}else{aircraft=[];refreshPlaneGraphics();pill('CONNECTING','warn');loadPlanes()}};
 loadAirspace();loadPlanes();setInterval(function(){if(sim)simulate();else loadPlanes()},30000);setInterval(function(){if(lastUpdate){var age=Math.max(0,Math.floor((Date.now()-lastUpdate)/1000));status('age',(sim?'SIMULATED · ':'ADS-B · ')+age+'S OLD');status('lastUpdated',(sim?'Simulation tick':'Last valid aircraft feed timestamp')+' at '+new Date(lastUpdate).toLocaleTimeString())}},1000)}
 window.addEventListener('DOMContentLoaded',initialize);
 })();
